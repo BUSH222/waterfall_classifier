@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Done</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="row">
+        <h1>Status</h1>
+        <form method="post" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </header>
+
+      <p>{{ message }}</p>
+      <p><a href="/classify">Back</a></p>
+    </main>
+  </body>
+</html>

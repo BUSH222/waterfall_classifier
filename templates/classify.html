@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Classify</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="row">
+        <h1>Classify</h1>
+        <form method="post" action="/logout">
+          <button type="submit">Logout</button>
+        </form>
+      </header>
+
+
+      <p class="meta">
+        Progress: <span id="classified-count">{{ classified_count }}</span> / <span id="total-images">{{ total_images }}</span>
+        <span id="accuracy-wrap">
+          {% if stats.accuracy is not none %}
+            — Accuracy: <span id="accuracy-span">{{ (stats.accuracy * 100) | round(2) }}</span>%
+          {% else %}
+            <span id="accuracy-span" style="display:none"></span>
+          {% endif %}
+        </span>
+      </p>
+
+      <form id="decision-form" method="post" action="/classify" class="row">
+        <input type="hidden" id="filename-input" name="filename" value="{{ filename }}" />
+        <input type="hidden" id="decision-input" name="decision" value="" />
+        <button type="button" data-decision="signal">Signal present</button>
+        <button type="button" data-decision="no_signal">No signal</button>
+      </form>
+
+      <noscript>
+        <p class="hint">JavaScript is disabled; submitting a label will reload the page.</p>
+      </noscript>
+
+      <div class="card">
+        <p class="filename" id="filename-text">{{ filename }}</p>
+        <p class="meta" id="done-message"></p>
+        <img id="image-el" class="image" src="{{ request.url_for('get_image', image_path=filename) }}" alt="waterfall" />
+      </div>
+
+      
+
+      <section class="card">
+        <h2>Stats (this user)</h2>
+        <ul>
+          <li>Total decisions: <span id="stat-total">{{ stats.total }}</span></li>
+          <li>Correct: <span id="stat-correct">{{ stats.correct }}</span></li>
+          <li>Incorrect: <span id="stat-incorrect">{{ stats.incorrect }}</span></li>
+          <li>Unknown (no ground truth): <span id="stat-unknown">{{ stats.unknown }}</span></li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>APIs</h2>
+        <ul>
+          <li><a href="/api/stats">/api/stats</a></li>
+          <li><a href="/api/correct">/api/correct</a></li>
+          <li><a href="/api/misidentified">/api/misidentified</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        const form = document.getElementById('decision-form');
+        const filenameInput = document.getElementById('filename-input');
+        const decisionInput = document.getElementById('decision-input');
+        const filenameText = document.getElementById('filename-text');
+        const imageEl = document.getElementById('image-el');
+        const doneMessage = document.getElementById('done-message');
+
+        const classifiedCountEl = document.getElementById('classified-count');
+        const totalImagesEl = document.getElementById('total-images');
+        const accuracySpan = document.getElementById('accuracy-span');
+
+        const statTotal = document.getElementById('stat-total');
+        const statCorrect = document.getElementById('stat-correct');
+        const statIncorrect = document.getElementById('stat-incorrect');
+        const statUnknown = document.getElementById('stat-unknown');
+
+        const buttons = Array.from(form.querySelectorAll('[data-decision]'));
+        let busy = false;
+
+        function encodeURIComponentPath(path) {
+          return path.split('/').map(encodeURIComponent).join('/');
+        }
+
+        function setBusy(v) {
+          busy = v;
+          buttons.forEach((b) => (b.disabled = v));
+        }
+
+        function updateStats(stats) {
+          if (!stats) return;
+
+          if (typeof stats.total === 'number') {
+            classifiedCountEl.textContent = String(stats.total);
+            statTotal.textContent = String(stats.total);
+          }
+          if (typeof stats.total_images === 'number') {
+            totalImagesEl.textContent = String(stats.total_images);
+          }
+          if (typeof stats.correct === 'number') statCorrect.textContent = String(stats.correct);
+          if (typeof stats.incorrect === 'number') statIncorrect.textContent = String(stats.incorrect);
+          if (typeof stats.unknown === 'number') statUnknown.textContent = String(stats.unknown);
+
+          if (stats.accuracy === null || typeof stats.accuracy === 'undefined') {
+            accuracySpan.style.display = 'none';
+          } else {
+            accuracySpan.style.display = '';
+            accuracySpan.textContent = String(Math.round(stats.accuracy * 10000) / 100);
+          }
+        }
+
+        function showDone(message) {
+          doneMessage.textContent = message || 'All images have been classified.';
+          imageEl.style.display = 'none';
+          buttons.forEach((b) => (b.disabled = true));
+        }
+
+        function showImage(filename) {
+          doneMessage.textContent = '';
+          filenameInput.value = filename;
+          filenameText.textContent = filename;
+          imageEl.style.display = '';
+          imageEl.src = '/image/' + encodeURIComponentPath(filename) + '?cb=' + Date.now();
+        }
+
+        async function postDecision(decision) {
+          if (busy) return;
+          setBusy(true);
+          decisionInput.value = decision;
+          try {
+            const body = new FormData(form);
+            const resp = await fetch('/api/decision', { method: 'POST', body });
+            if (resp.status === 401) {
+              window.location.href = '/login';
+              return;
+            }
+            if (!resp.ok) {
+              throw new Error('Request failed');
+            }
+            const payload = await resp.json();
+            updateStats(payload.stats);
+            if (payload.done) {
+              showDone(payload.message);
+            } else if (payload.filename) {
+              showImage(payload.filename);
+            }
+          } catch (e) {
+            doneMessage.textContent = 'Error saving decision. Please try again.';
+          } finally {
+            decisionInput.value = '';
+            setBusy(false);
+          }
+        }
+
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => postDecision(btn.dataset.decision));
+        });
+      })();
+    </script>
+  </body>
+</html>

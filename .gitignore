@@ -1,3 +1,9 @@
+*.png
+*.jpg
+*.jpeg
+*.webp
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -60,6 +66,12 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+data/images/
+data/with_signal/
+data/without_signal/
+data/annotations.sqlite3
+data/annotations.sqlite3-journal
+data/*.csv
 
 # Flask stuff:
 instance/
