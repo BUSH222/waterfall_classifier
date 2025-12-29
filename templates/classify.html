@@ -32,6 +32,7 @@
         <input type="hidden" id="decision-input" name="decision" value="" />
         <button type="button" data-decision="signal">Signal present</button>
         <button type="button" data-decision="no_signal">No signal</button>
+        <button type="button" id="undo-btn" disabled>Undo last</button>
       </form>
 
       <noscript>
@@ -84,8 +85,11 @@
         const statIncorrect = document.getElementById('stat-incorrect');
         const statUnknown = document.getElementById('stat-unknown');
 
+        const undoBtn = document.getElementById('undo-btn');
+
         const buttons = Array.from(form.querySelectorAll('[data-decision]'));
         let busy = false;
+        let lastSubmitted = null; // { filename: string }
 
         function encodeURIComponentPath(path) {
           return path.split('/').map(encodeURIComponent).join('/');
@@ -94,6 +98,12 @@
         function setBusy(v) {
           busy = v;
           buttons.forEach((b) => (b.disabled = v));
+          // Undo button is managed separately based on lastSubmitted.
+          if (v) undoBtn.disabled = true;
+        }
+
+        function setUndoAvailable(v) {
+          undoBtn.disabled = !v;
         }
 
         function updateStats(stats) {
@@ -122,6 +132,7 @@
           doneMessage.textContent = message || 'All images have been classified.';
           imageEl.style.display = 'none';
           buttons.forEach((b) => (b.disabled = true));
+          setUndoAvailable(false);
         }
 
         function showImage(filename) {
@@ -136,6 +147,8 @@
           if (busy) return;
           setBusy(true);
           decisionInput.value = decision;
+
+          const prevFilename = filenameInput.value;
           try {
             const body = new FormData(form);
             const resp = await fetch('/api/decision', { method: 'POST', body });
@@ -153,10 +166,55 @@
             } else if (payload.filename) {
               showImage(payload.filename);
             }
+
+            // If the request succeeded, we can undo the last decision.
+            lastSubmitted = { filename: prevFilename };
+            setUndoAvailable(true);
           } catch (e) {
             doneMessage.textContent = 'Error saving decision. Please try again.';
           } finally {
             decisionInput.value = '';
+            setBusy(false);
+
+            // Re-enable undo if we have a lastSubmitted.
+            if (lastSubmitted) setUndoAvailable(true);
+          }
+        }
+
+        async function undoLast() {
+          if (busy) return;
+          if (!lastSubmitted || !lastSubmitted.filename) return;
+
+          setBusy(true);
+          try {
+            const body = new FormData();
+            body.append('filename', lastSubmitted.filename);
+
+            const resp = await fetch('/api/undo', { method: 'POST', body });
+            if (resp.status === 401) {
+              window.location.href = '/login';
+              return;
+            }
+            if (!resp.ok) {
+              throw new Error('Undo failed');
+            }
+
+            const payload = await resp.json();
+            updateStats(payload.stats);
+            if (payload.filename) {
+              showImage(payload.filename);
+            }
+
+            // Single-level undo: after undoing once, clear.
+            lastSubmitted = null;
+            setUndoAvailable(false);
+
+            if (payload.message) {
+              doneMessage.textContent = payload.message;
+            }
+          } catch (e) {
+            doneMessage.textContent = 'Error undoing decision. Please try again.';
+          } finally {
             setBusy(false);
           }
         }
@@ -164,6 +222,8 @@
         buttons.forEach((btn) => {
           btn.addEventListener('click', () => postDecision(btn.dataset.decision));
         });
+
+        undoBtn.addEventListener('click', undoLast);
 
         document.addEventListener('keydown', (e) => {
           if (busy) return;
@@ -177,6 +237,15 @@
             (target && target.isContentEditable);
 
           if (isTypingTarget) return;
+
+          if (e.key === 'Backspace') {
+            // Optional keyboard shortcut for undo.
+            if (lastSubmitted) {
+              e.preventDefault();
+              undoLast();
+            }
+            return;
+          }
 
           if (e.key === 'ArrowLeft') {
             e.preventDefault();

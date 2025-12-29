@@ -77,6 +77,20 @@ class AnnotationDB:
             cur.execute("SELECT filename FROM decisions WHERE username=?;", (username,))
             return {r["filename"] for r in cur.fetchall()}
 
+    def delete_decision(self, *, username: str, filename: str) -> int:
+        """Deletes a user's decision for a given image.
+
+        Returns number of rows deleted (0 or 1).
+        """
+        with self._lock:
+            cur = self._conn.cursor()
+            cur.execute(
+                "DELETE FROM decisions WHERE username=? AND filename=?;",
+                (username, filename),
+            )
+            self._conn.commit()
+            return int(cur.rowcount or 0)
+
     def user_stats(self, username: str) -> dict[str, int | float | None]:
         with self._lock:
             cur = self._conn.cursor()

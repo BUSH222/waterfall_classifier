@@ -264,6 +264,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         return _next_payload(request, user=user)
 
+    @app.post("/api/undo")
+    def api_undo(
+        request: Request,
+        filename: str = Form(...),
+        user: str = Depends(require_user_for_api),
+    ):
+        if filename not in request.app.state.images_set:
+            raise HTTPException(status_code=400, detail="Unknown filename")
+
+        db: AnnotationDB = request.app.state.db
+        db.delete_decision(username=user, filename=filename)
+
+        # Return the undone image as the next one to show.
+        stats = db.user_stats(user)
+        stats["total_images"] = len(request.app.state.images)
+        stats["remaining"] = stats["total_images"] - stats["total"]
+        stats["labels_loaded"] = bool(request.app.state.ground_truth)
+
+        return {
+            "done": False,
+            "filename": filename,
+            "message": "Undid last decision.",
+            "stats": stats,
+        }
+
     @app.get("/image/{image_path:path}", name="get_image", include_in_schema=False)
     def get_image(request: Request, image_path: str):
         if image_path not in request.app.state.images_set:
