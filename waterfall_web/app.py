@@ -165,7 +165,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "done.html",
                 {
                     "request": request,
-                    "message": "All images have been classified for this user.",
+                    "message": "All images have been classified for this user. Thank you! 🎉",
                 },
             )
 

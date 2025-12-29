@@ -164,6 +164,28 @@
         buttons.forEach((btn) => {
           btn.addEventListener('click', () => postDecision(btn.dataset.decision));
         });
+
+        document.addEventListener('keydown', (e) => {
+          if (busy) return;
+
+          const target = e.target;
+          const tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+          const isTypingTarget =
+            tag === 'input' ||
+            tag === 'textarea' ||
+            tag === 'select' ||
+            (target && target.isContentEditable);
+
+          if (isTypingTarget) return;
+
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            postDecision('signal');
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            postDecision('no_signal');
+          }
+        });
       })();
     </script>
   </body>
