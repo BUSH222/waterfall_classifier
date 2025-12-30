@@ -10,20 +10,20 @@ A machine learning project to classify satnogs waterfalls (whether they have sig
 
 Since the total satnogs dataset is very big (~13 million observations, out of them at least 10 million with waterfalls), we can calculate the human accuracy, while making use of the normal approximation of the data as per the CLT.\
 Assuming:
-$$E = 0.01 \text{ (margin of error)}\\
+$$E = 0.02 \text{ (margin of error)}\\
 z=1.96\text{ (z-score for the confidence level at } \alpha=0.95 \text{)}\\
 p=0.5\text{ (human accuracy, unknown so far)}\\
 n - \text{number of samples taken}\\
 m - \text{number of misclassified samples out of the total number of samples n}\\
 \hat{p} - \text { real human accuracy}$$
 We can deduce a minimum sample size to find the true human accuracy p:
-$$n=\frac{z^2p(1-p)}{E^2}=\frac{1.96*0.5*0.5}{0.01^2}=9604$$
-Consequently, 9604 (I will use ~10000 since experts are imperfect) samples need to be reviewed to estimate the human accuracy. Then the true human accuracy is simply:
+$$n=\frac{z^2p(1-p)}{E^2}=\frac{1.96*0.5*0.5}{0.02^2}=1225$$
+Consequently, 1225 (I will use ~1500 since experts are imperfect) samples need to be reviewed to estimate the human accuracy. Then the true human accuracy is simply:
 $$\hat{p}=1-\frac{m}{n}$$
 
 This number will be estimated in **this branch**
 
-If my model scores above the human margin of error or 0.96 (arbitrary value), I would consider that to be a success.
+If my model scores above the human margin of error or 0.96 (whichever is greater), I would consider that to be a success.
 
 ## Manual labeling web app (FastAPI)
 
