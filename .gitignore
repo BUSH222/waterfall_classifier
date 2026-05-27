@@ -1,4 +1,8 @@
 *.png
+!06_checkpoints/
+!06_checkpoints/misclassified_images/
+!06_checkpoints/misclassified_images/*.png
+
 .DS_Store
 
 
